@@ -1,26 +1,24 @@
-###### sparklyr code to perform FPGrowth algorithm ############################
-
+###### sparklyr example code to perform FPGrowth algorithm ####################
 library(sparklyr)
 library(dplyr)
+library(visNetwork)
 
 #### spark connect ############################################################
 sc <- spark_connect(master = "local")
 
 #### first create some dummy data #############################################
-
-transactions = data.frame(
-  id = c(1,1,1,2,2,2,2,3,3),
-  item = c(1,2,5,1,2,3,5,1,2)
-)
+transactions = readRDS("transactions.RDs")
 
 #### upload to spark ##########################################################  
 trx_tbl  = copy_to(sc, transactions, overwrite = TRUE)
 
 #### The data needs to be aggregated per id and the items need to be in a list
 trx_agg = trx_tbl %>% group_by(id) %>% summarise(items = collect_list(item))
+trx_agg %>% count()
 
+#### Helper functions #########################################################
 
-#### Expose FPGrowth ##########################################################
+#### Expose/call FPGrowth 
 
 ## The FPGrowth algorithm is not exposed yet in sparklyR 
 ## so we need to invoke it ourselves with the following helper function
@@ -48,28 +46,24 @@ ml_fpgrowth = function(
 }
 
 
-FPGmodel = ml_fpgrowth(trx_agg, support = 0.05, confidence = 0.6)
+##### extract rules
 
+# The nasty thing is that antecedent (LHS) and consequent (RHS) are lists
+# We can split them and collect them to R
 
-##### extract rules ##########################################
-
-
-#### The nasty thing is that antecedent (LHS) and consequent (RHS) are lists
-#### We can split them and collect them to R
-
-ml_fpgrowth_rules = function(FPGmodel, n1,n2)
+ml_fpgrowth_extract_rules = function(FPGmodel, nLHS = 1, nRHS = 1)
 {
   rules = FPGmodel %>% invoke("associationRules")
   sdf_register(rules, "rules")
   
   exprs1 <- lapply(
-    0:(n1 - 1), 
-    function(i) paste("CAST(antecedent[", i, "] AS double) AS x", i, sep="")
+    0:(nLHS - 1), 
+    function(i) paste("CAST(antecedent[", i, "] AS string) AS LHSitem", i, sep="")
   )
   
   exprs2 <- lapply(
-    0:(n2 - 1), 
-    function(i) paste("CAST(consequent[", i, "] AS double) AS y", i, sep="")
+    0:(nRHS - 1), 
+    function(i) paste("CAST(consequent[", i, "] AS string) AS RHSitem", i, sep="")
   )
   
   splittedLHS = rules %>% invoke("selectExpr", exprs1) 
@@ -82,10 +76,29 @@ ml_fpgrowth_rules = function(FPGmodel, n1,n2)
     sdf_bind_cols(p1, p2) %>% collect(),
     rules %>% collect() %>% select(confidence)
   )
+  
+  ## paste LHSitems into one rule column {a,b,c} and place all into a rule {a,b,c} => {d}
 }
 
 
-myrules = ml_fpgrowth_rules(FPGmodel, n1=5, n2=1)
+#### Plot resulting rules in a networkgraph
+plotRules = function(rules, LHS = "LHS", RHS = "RHS")
+{
+  
+}
+
+
+###### example calls ##################################################################
+FPGmodel = ml_fpgrowth(trx_agg, "items", support = 0.01, confidence = 0.01)
+
+GroceryRules =  ml_fpgrowth(
+  trx_agg,
+  "items", 
+  support = 0.01,
+  confidence = 0.01
+) %>%
+  ml_fpgrowth_extract_rules(nLHS = 2, nRHS = 1) %>%
+  plotRules()
 
 
 ##### disconnect from spark ##############################
