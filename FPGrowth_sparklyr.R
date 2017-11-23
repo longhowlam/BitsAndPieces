@@ -28,8 +28,8 @@ trx_agg %>% count()
 ml_fpgrowth = function(
   x, 
   features_col = "items",
-  support,
-  confidence
+  support = 0.01,
+  confidence = 0.01
 ){
   ensure_scalar_character(features_col)
   ensure_scalar_double(support)
@@ -52,7 +52,7 @@ ml_fpgrowth = function(
 # The nasty thing is that antecedent (LHS) and consequent (RHS) are lists
 # We can split them and collect them to R
 
-ml_fpgrowth_extract_rules = function(FPGmodel, nLHS = 1, nRHS = 1)
+ml_fpgrowth_extract_rules = function(FPGmodel, nLHS = 2, nRHS = 1)
 {
   rules = FPGmodel %>% invoke("associationRules")
   sdf_register(rules, "rules")
@@ -81,7 +81,7 @@ ml_fpgrowth_extract_rules = function(FPGmodel, nLHS = 1, nRHS = 1)
 
 #### Plot resulting rules in a networkgraph
 
-plot_rules = function(rules, LHS = "LHSitem0", RHS = "RHSitem0", cf = 0.3)
+plot_rules = function(rules, LHS = "LHSitem0", RHS = "RHSitem0", cf = 0.2)
 {
   rules = rules %>% filter(confidence > cf)
   nds = unique(
@@ -112,13 +112,9 @@ plot_rules = function(rules, LHS = "LHSitem0", RHS = "RHSitem0", cf = 0.3)
 FPGmodel = ml_fpgrowth(trx_agg, "items", support = 0.01, confidence = 0.01)
 
 GroceryRules =  ml_fpgrowth(
-  trx_agg,
-  "items", 
-  support = 0.01,
-  confidence = 0.01
+  trx_agg
 ) %>%
-  ml_fpgrowth_extract_rules(nLHS = 2, nRHS = 1)
-
+  ml_fpgrowth_extract_rules()
 
 plot_rules(GroceryRules)
 
