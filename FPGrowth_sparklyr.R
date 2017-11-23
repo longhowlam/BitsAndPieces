@@ -16,13 +16,14 @@ trx_tbl  = copy_to(sc, transactions, overwrite = TRUE)
 trx_agg = trx_tbl %>% group_by(id) %>% summarise(items = collect_list(item))
 trx_agg %>% count()
 
+
 #### Helper functions #########################################################
 
 #### Expose/call FPGrowth 
 
-## The FPGrowth algorithm is not exposed yet in sparklyR 
-## so we need to invoke it ourselves with the following helper function
-## It defines and fits the algorithm given the data and minimum support and confidence
+## The FPGrowth algorithm is not exposed yet in sparklyR so we need to invoke 
+## it ourselves with the following helper function. It defines and fits the 
+## algorithm given the data and minimum support and confidence
 
 ml_fpgrowth = function(
   x, 
@@ -60,7 +61,6 @@ ml_fpgrowth_extract_rules = function(FPGmodel, nLHS = 1, nRHS = 1)
     0:(nLHS - 1), 
     function(i) paste("CAST(antecedent[", i, "] AS string) AS LHSitem", i, sep="")
   )
-  
   exprs2 <- lapply(
     0:(nRHS - 1), 
     function(i) paste("CAST(consequent[", i, "] AS string) AS RHSitem", i, sep="")
@@ -76,19 +76,39 @@ ml_fpgrowth_extract_rules = function(FPGmodel, nLHS = 1, nRHS = 1)
     sdf_bind_cols(p1, p2) %>% collect(),
     rules %>% collect() %>% select(confidence)
   )
-  
-  ## paste LHSitems into one rule column {a,b,c} and place all into a rule {a,b,c} => {d}
 }
 
 
 #### Plot resulting rules in a networkgraph
-plotRules = function(rules, LHS = "LHS", RHS = "RHS")
+
+plot_rules = function(rules, LHS = "LHSitem0", RHS = "RHSitem0", cf = 0.3)
 {
+  rules = rules %>% filter(confidence > cf)
+  nds = unique(
+    c(
+      rules[,LHS][[1]],
+      rules[,RHS][[1]]
+    )
+  )
   
+  nodes = data.frame(id = nds, label = nds, title = nds) %>% arrange(id)
+  
+  edges = data.frame(
+    from =  rules[,LHS][[1]],
+    to = rules[,RHS][[1]]
+  )
+  visNetwork(nodes, edges, main = "Groceries network", size=1) %>%
+    visOptions(highlightNearest = TRUE, nodesIdSelection = TRUE) %>%
+    visEdges(smooth = FALSE) %>%
+    visPhysics(
+      solver = "barnesHut", 
+      forceAtlas2Based = list(gravitationalConstant = -20, maxVelocity = 1)
+    )
 }
 
 
-###### example calls ##################################################################
+###### example calls ##########################################################
+
 FPGmodel = ml_fpgrowth(trx_agg, "items", support = 0.01, confidence = 0.01)
 
 GroceryRules =  ml_fpgrowth(
@@ -97,11 +117,13 @@ GroceryRules =  ml_fpgrowth(
   support = 0.01,
   confidence = 0.01
 ) %>%
-  ml_fpgrowth_extract_rules(nLHS = 2, nRHS = 1) %>%
-  plotRules()
+  ml_fpgrowth_extract_rules(nLHS = 2, nRHS = 1)
 
 
-##### disconnect from spark ##############################
+plot_rules(GroceryRules)
+
+
+##### disconnect from spark ###################################################
 
 spark_disconnect(sc)
 
