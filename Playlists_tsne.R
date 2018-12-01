@@ -5,11 +5,13 @@
 #### libraries needed ####
 library(httr)
 library(purrr)
+library(furrr)
 library(dplyr)
-library(reticulate)
 library(Rtsne)
+library(reticulate)
 library(plotly)
 
+plan(multiprocess)
 #### python environment with librosa module installed
 use_python(python = "/usr/bin/python3")
 
@@ -112,6 +114,7 @@ HEAVYMETAL_tracks = HEAVYMETAL_tracks %>% filter(preview_url != "")
 ownerID = "spotify"
 playlistID = "37i9dQZF1DXaTIN6XNquoW"
 
+
 MJ_tracks = ExtractTracksFromPlaylist(
   offset = 0, 
   ownerID = ownerID,  
@@ -159,20 +162,20 @@ for(i in seq_along(AllSongs$preview_url))
 ########  Calculate mel spectogram #################################################
 ## using python librosa pacakge (via the reticulate package)
 ## all downloaded mp3's are put trhough librosa
-
+use_condaenv("my_py36")
 librosa = import("librosa")
 ff = librosa$feature
 
 ## import one mp3 file
-mp3s = list.files("mp3songs/")
-onemp3 = librosa$load( paste0("mp3songs/", mp3s[1]))
+#mp3s = list.files("mp3songs/")
+#onemp3 = librosa$load( paste0("mp3songs/", mp3s[1]))
 
-length(onemp3[[1]])
-length(onemp3[[1]])/onemp3[[2]]  # ~30 seconds sound
+#length(onemp3[[1]])
+#length(onemp3[[1]])/onemp3[[2]]  # ~30 seconds sound
 
 ## 5 seconds plot
-pp = 5*onemp3[[2]]
-plot(onemp3[[1]][1:pp], type="l")
+#pp = 5*onemp3[[2]]
+#plot(onemp3[[1]][1:pp], type="l")
 
 
 #### helper function around librosa call ####
@@ -184,25 +187,31 @@ mfcc = function(file, dir, .pb = NULL)
   mp3 = librosa$load(pathfile)
   
   # calc  mel to file
-  librosa$logamplitude(
-    ff$melspectrogram(
+  ff$melspectrogram(
       mp3[[1]], 
       sr = mp3[[2]],
-      n_mels=96),
-    ref_power=1.0
-  )
+      n_mels=96)
 }
 
+#mp3 = librosa$load("mp3songs/031j0imoJX53yvsTnhghpl")
 
 mp3s = list.files("mp3songs/")
 pb = progress_estimated(length(mp3s))
 
 ### now using purrr::map we can calculate mfcc for each mp3 in the folder mp3songs
-AllSongsMFCC = purrr::map(mp3s, mfcc, dir = "mp3songs", .pb = pb)
+#t0 = proc.time()
+#AllSongsMFCC = purrr::map(mp3s, mfcc, dir = "mp3songs", .pb = pb)
+#t1 = proc.time()
+#t1-t0
+
+t0 = proc.time()
+AllSongsMFCC = furrr::future_map(mp3s, mfcc, dir = "mp3songs", .pb = pb)
+t1 = proc.time()
+t1-t0
 
 ## create a plot of the mfcc matrix
 rotate <- function(x) t(apply(x, 2, rev))
-image(rotate(rotate(rotate(AllSongsMFCC[[1]]))))
+image(rotate(rotate(rotate(AllSongsMFCC[[17]]))))
 
 ## create a feature matrix. Simply flatten the matrix
 ## each song is now a row of 13*1292 values
@@ -213,6 +222,38 @@ for(i in 1:nsongs){
   AllSongsMFCCMatrix[i,] = as.numeric(AllSongsMFCC[[i]])
 }
 
+
+#### UMAP and plotly ####################################################
+
+umap = import("umap")
+
+embedding = umap$UMAP(
+  n_neighbors = 5L,
+  n_components = 3L,
+  min_dist = 0.1,
+  metric='euclidean'
+)
+
+## compute UMAP with 3 components
+embedding_out = embedding$fit_transform(AllSongsMFCCMatrix)
+
+
+
+##### Plot the embeddings with plotly #########################################
+
+plotdata = data.frame(embedding_out)
+plotdata$trackid = mp3s
+plotdata = plotdata %>% left_join(AllSongs)
+plot_ly(
+  plotdata, 
+  x = ~X1,
+  y = ~X2, 
+  z = ~X3,
+  color=~label,
+  text = ~paste(artist, "<br>", song),
+  size = 1, sizes = c(1,4) 
+) %>% 
+  layout(title = '3D umap of artists')
 
 #### tsne and plotly ###################################################
 
