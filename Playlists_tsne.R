@@ -114,6 +114,7 @@ HEAVYMETAL_tracks = HEAVYMETAL_tracks %>% filter(preview_url != "")
 ownerID = "spotify"
 playlistID = "37i9dQZF1DXaTIN6XNquoW"
 
+spotify:user:wim_spaargaren:playlist:60S81N6h2E4A4mWzLGoM39
 
 MJ_tracks = ExtractTracksFromPlaylist(
   offset = 0, 
@@ -277,3 +278,28 @@ plot_ly(
   add_markers() %>%
   layout(title="3D t-sne on spotify mp3 samples")
 
+
+
+
+
+
+
+
+
+
+
+
+
+ownerID = "wim_spaargaren"
+playlistID = "60S81N6h2E4A4mWzLGoM39"
+
+spotify:user:wim_spaargaren:playlist:60S81N6h2E4A4mWzLGoM39
+
+t2000_tracks2 = ExtractTracksFromPlaylist(
+  offset = 100, 
+  ownerID = ownerID,  
+  playlistID = playlistID,
+  clientID, 
+  secret, 
+  mylabel = "JACKSON"
+)
