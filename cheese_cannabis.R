@@ -1,5 +1,4 @@
 ############### Extracting PoI from OSM in R ############################################
-
 library(tidyverse)
 library(osmdata)
 library(sf)
@@ -12,7 +11,6 @@ library(dplyr)
 #### Querying PoI's #####################################################################
 
 # Cheese and cannabis shops 
-
 out =  getbb("Amsterdam")%>%
   opq() %>%
   add_osm_feature("shop") %>% 
@@ -29,13 +27,20 @@ cheese_cannabis =  out2 %>%
 
 # put them on a leaflet map
 ccIcons <- iconList(
-  cheese = makeIcon("cheese.png",  20, 20),
-  cannabis = makeIcon("cannabis.png", 20,20)
+  cheese = makeIcon("cheese.png",  25, 25),
+  cannabis = makeIcon("cannabis.png", 25, 25)
 )
 
 leaflet(cheese_cannabis) %>%
   addTiles() %>%
   addMarkers(icon = ~ccIcons[shop], popup = ~name)
+
+
+
+
+
+
+
 
 
 ## Een gewone ggmap kaartje
