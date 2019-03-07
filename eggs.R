@@ -19,7 +19,6 @@ eggs.sum = eggs %>%
   )
 
 # transform this data to a hierarchical tree that is suitable for circlepackR
-# 
 eggs.hr = as.Node(eggs.sum, pathName = "webpath")
-circlepackeR(eggs.hr,  size = "avg_length", width = '800px', height = '800px')
-circlepackeR(eggs.hr,  size = "avg_elipticity", width = '800px', height = '800px')
+circlepackeR(eggs.hr, size = "avg_length", width = '800px', height = '800px')
+circlepackeR(eggs.hr, size = "avg_elipticity", width = '800px', height = '800px')
