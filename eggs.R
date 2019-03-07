@@ -1,9 +1,9 @@
-library(dplyr)
+library(tidyverse)
 library(circlepackeR)
 library(data.tree)
 library(treemap)
-library(readr)
 
+## import eggs data
 eggs <- read_csv("aaj1945_DataS1_Egg_shape_by_species.csv")
 
 ## summarize on Order and family
@@ -18,7 +18,7 @@ eggs.sum = eggs %>%
     webpath = paste("All", Order, Family, sep = "/")
   )
 
-# transform this data to a hierarchical tree that is suitable for circlepackR
+## transform this data to a hierarchical tree that is suitable for circlepackR
 eggs.hr = as.Node(eggs.sum, pathName = "webpath")
 circlepackeR(eggs.hr, size = "avg_length", width = '800px', height = '800px')
 circlepackeR(eggs.hr, size = "avg_elipticity", width = '800px', height = '800px')
