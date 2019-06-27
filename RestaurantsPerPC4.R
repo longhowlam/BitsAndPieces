@@ -1,114 +1,52 @@
-library(leaflet)
-library(stringr)
-library(dplyr)
-library(sf)
+#### Get Restaurants in Noord Holland from OSM data
+NH =  getbb("Noord Holland")%>%
+  opq(timeout = 60) %>%
+  add_osm_feature("amenity") %>% 
+  osmdata_sf() %>% 
+  .$osm_points %>% 
+  filter(amenity == "restaurant") %>% 
+  as.data.frame() %>% 
+  select(addr.city, name, geometry)
 
-#### inlezen shape file en restaurant data
-PC4_shapes =  sf::st_read("ESRI-PC4-2017R1.shp")
-Restaurants = readr::read_csv("Restaurants.csv")
-
-#### Zet coordinatensysteem en make polygon
-PC4_shapes = PC4_shapes %>% 
+#### Read in Posctode 4 position shape files: https://www.imergis.nl/htm/opendata.htm
+## and put in right coordinate system
+PC4_shapes =  sf::st_read("ESRI-PC4-2017R1.shp") %>% 
   sf::st_transform("+proj=longlat +datum=WGS84") %>% 
-  st_cast("POLYGON")
+  st_cast("POLYGON")  
 
-### traditional R plot
-plot(PC4_shapes)
+###### We need postcode 4 of each restaurant we can get that by determining
+## in which PC4 shape the geompoint of the restaurant  is located
 
+pcindex = st_intersects(NH$geometry, PC4_shapes$geometry)
+NH$PC4 = PC4_shapes$PC4[pcindex %>% unlist]
 
-### leaflet plot with colors
-
-colpal <- colorQuantile(
-  palette = colorRamps::green2red(7), n=7,
-  domain = PC4_shapes$Aantal_adr 
-)
-
-
-M = leaflet() %>%
-  addTiles() %>% 
-  addPolygons(
-    data = PC4_shapes,  
-    weight = 1, 
-    label = PC4_shapes$PC4,  
-    fillColor = colpal( PC4_shapes$Aantal_adr )
-  )
-M
-
-### leaflet plot with restaurant density
-
-PC4_rest = Restaurants %>% 
-  mutate(PC4 = str_sub(PCs,1,4)) %>% 
+#### group restaurants on PC4 level
+PC4_rest = NH %>% 
   group_by(PC4) %>% 
   summarise(N_restaurants = n())
 
+#### join with shapes data
 PC4_shapes2 = PC4_shapes %>% 
   left_join(PC4_rest) %>% 
   mutate(
     restaurant_perc = N_restaurants / (Aantal_adr/1000)
   )
 
-hist(PC4_shapes2$restaurant_perc)
-
+### define color scales and put shapes on leaflet map
 pal <- colorQuantile(
   palette = colorRamps::green2red(13), n=13,
   domain =  PC4_shapes2$restaurant_perc
 )
 
-
-
-M = leaflet(PC4_shapes2) %>%
+leaflet(PC4_shapes2) %>%
   addTiles() %>% 
   addPolygons(
     opacity = 0.125,
     fillOpacity = 0.5,
     weight = 1, 
-    label = paste(
-      PC4_shapes2$PC4, 
-      round(PC4_shapes2$restaurant_perc)
+    label = paste("Postcode 4:",PC4_shapes2$PC4, 
+      "<br/> N rest", PC4_shapes2$N_restaurants, "N adresses", PC4_shapes2$Aantal_adr
     ),
     fillColor = ~pal(restaurant_perc)
-  ) %>% 
-  addLegend("bottomright", pal = pal, values = ~restaurant_perc,
-                           opacity = 1
   )
-M
-
-
-
-
-
-
-library(osmdata)
-out =  getbb("drente")%>%
-  opq() %>%
-  add_osm_feature("amenity") %>% 
-  osmdata_sf()
-
-# data
-out2 = out$osm_points %>% filter(amenity == "restaurant")
-
-# look at cheese and cannabis shops
-cheese_cannabis =  out2 %>% 
-  select(name, addr.city, opening_hours, shop ) %>%
-  mutate(shop = as.character(shop)) %>% 
-  filter(shop %in% c("cheese", "cannabis"))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
