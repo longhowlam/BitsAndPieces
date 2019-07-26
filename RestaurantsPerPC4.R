@@ -1,3 +1,8 @@
+library(tidyverse)
+library(osmdata)
+library(sf)
+library(leaflet)
+
 #### Get Restaurants in Noord Holland from OSM data
 NH =  getbb("Noord Holland")%>%
   opq(timeout = 60) %>%
@@ -29,13 +34,18 @@ PC4_rest = NH %>%
 PC4_shapes2 = PC4_shapes %>% 
   left_join(PC4_rest) %>% 
   mutate(
-    restaurant_perc = N_restaurants / (Aantal_adr/1000)
+    restaurant_per1000 = N_restaurants / (Aantal_adr/1000)
   )
 
 ### define color scales and put shapes on leaflet map
 pal <- colorQuantile(
   palette = colorRamps::green2red(13), n=13,
-  domain =  PC4_shapes2$restaurant_perc
+  domain =  PC4_shapes2$restaurant_per1000
+)
+
+lbl = paste(
+  "postcode 4", PC4_shapes2$PC4, 
+  "N restuarants", PC4_shapes2$N_restaurants
 )
 
 leaflet(PC4_shapes2) %>%
@@ -44,9 +54,7 @@ leaflet(PC4_shapes2) %>%
     opacity = 0.125,
     fillOpacity = 0.5,
     weight = 1, 
-    label = paste("Postcode 4:",PC4_shapes2$PC4, 
-      "<br/> N rest", PC4_shapes2$N_restaurants, "N adresses", PC4_shapes2$Aantal_adr
-    ),
-    fillColor = ~pal(restaurant_perc)
+    label = lbl,
+    fillColor = ~pal(restaurant_per1000)
   )
 
